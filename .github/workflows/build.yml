@@ -52,9 +52,14 @@ jobs:
         VERSION=$(cat $VERSION_FILE)
         IFS='.' read -r -a VERSION_PARTS <<< "$VERSION"
         PATCH=${VERSION_PARTS[2]}
-        PATCH=$((PATCH+1))
+        
+        # Loop to find the next available tag version
+        while git rev-parse "v${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$PATCH" >/dev/null 2>&1; do
+          PATCH=$((PATCH+1))
+        done
+        
         NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$PATCH"
-
+        
         # Update version file
         echo $NEW_VERSION > $VERSION_FILE
         
