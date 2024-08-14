@@ -1,4 +1,4 @@
-name: Build Minecraft Mod
+name: Build and Release Minecraft Mod
 
 on:
   push:
@@ -40,10 +40,37 @@ jobs:
       with:
         name: build
         path: build/libs/*.jar
+
+    - name: Bump version and create tag
+      id: tag_version
+      run: |
+        # Bump the version number (simple example, increments a patch version)
+        VERSION_FILE="version.txt"
+        if [ ! -f $VERSION_FILE ]; then echo "0.0.0" > $VERSION_FILE; fi
+        VERSION=$(cat $VERSION_FILE)
+        IFS='.' read -r -a VERSION_PARTS <<< "$VERSION"
+        PATCH=${VERSION_PARTS[2]}
+        PATCH=$((PATCH+1))
+        NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$PATCH"
+        echo $NEW_VERSION > $VERSION_FILE
+
+        # Commit and tag the new version
+        git config --local user.name "GitHub Action"
+        git config --local user.email "action@github.com"
+        git add $VERSION_FILE
+        git commit -m "Bump version to $NEW_VERSION"
+        git tag "v$NEW_VERSION"
+
+    - name: Push tag to the repository
+      run: |
+        git push origin "v$(cat version.txt)"
+
     - name: Publish to GitHub Releases
       uses: ncipollo/release-action@v1
       with:
         artifacts: build/libs/*.jar
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag: ${{ github.ref }}
-        name: Release ${{ github.ref }}
+        tag: "v$(cat version.txt)"
+        name: "Release v$(cat version.txt)"
+        body: "Automated release for version v$(cat version.txt)"
+
