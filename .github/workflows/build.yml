@@ -31,7 +31,6 @@ jobs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
-
     - name: Build with Gradle
       run: ./gradlew build
 
@@ -76,20 +75,21 @@ jobs:
         git add $VERSION_FILE
         git commit -m "Bump version to $NEW_VERSION"
         git tag -a "$TAG_NAME" -m "Version $NEW_VERSION"
-
+        
+        # Set output for the next steps
+        echo "::set-output name=tag_name::$TAG_NAME"
     - name: Push tag to the repository
       run: |
-        if [ -z "$TAG_NAME" ]; then
+        if [ -z "${{ steps.tag_version.outputs.tag_name }}" ]; then
           echo "Error: TAG_NAME is empty before pushing"
           exit 1
         fi
-        git push origin "$TAG_NAME"
-
+        git push origin "${{ steps.tag_version.outputs.tag_name }}"
     - name: Publish to GitHub Releases
       uses: ncipollo/release-action@v1
       with:
         artifacts: build/libs/*.jar
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag: "$TAG_NAME"
-        name: "Release $TAG_NAME"
-        body: "Automated release for version $TAG_NAME"
+        tag: "${{ steps.tag_version.outputs.tag_name }}"
+        name: "Release ${{ steps.tag_version.outputs.tag_name }}"
+        body: "Automated release for version ${{ steps.tag_version.outputs.tag_name }}"
