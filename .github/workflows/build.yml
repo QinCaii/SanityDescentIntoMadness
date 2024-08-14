@@ -60,6 +60,10 @@ jobs:
         
         NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$PATCH"
         
+        # Ensure the new tag is in the correct format
+        TAG_NAME="v$NEW_VERSION"
+        echo "Generated tag: $TAG_NAME"
+        
         # Update version file
         echo $NEW_VERSION > $VERSION_FILE
         
@@ -68,17 +72,17 @@ jobs:
         git config --local user.email "action@github.com"
         git add $VERSION_FILE
         git commit -m "Bump version to $NEW_VERSION"
-        git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION"
+        git tag -a "$TAG_NAME" -m "Version $NEW_VERSION"
 
     - name: Push tag to the repository
       run: |
-        git push origin "v$(cat version.txt)"
+        git push origin "$TAG_NAME"
 
     - name: Publish to GitHub Releases
       uses: ncipollo/release-action@v1
       with:
         artifacts: build/libs/*.jar
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag: "v$(cat version.txt)"
-        name: "Release v$(cat version.txt)"
-        body: "Automated release for version v$(cat version.txt)"
+        tag: "$TAG_NAME"
+        name: "Release $TAG_NAME"
+        body: "Automated release for version $TAG_NAME"
