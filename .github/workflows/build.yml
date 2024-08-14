@@ -78,18 +78,41 @@ jobs:
         
         # Set output for the next steps
         echo "::set-output name=tag_name::$TAG_NAME"
+    - name: Check if tag exists and handle conflicts
+      id: check_tag
+      run: |
+        TAG_EXISTS=false
+        while true; do
+          if git ls-remote --tags origin | grep -q "refs/tags/${{ steps.tag_version.outputs.tag_name }}$"; then
+            echo "Tag ${{ steps.tag_version.outputs.tag_name }} already exists"
+            TAG_EXISTS=true
+            # Increment the patch version again
+            VERSION=$(cat $VERSION_FILE)
+            IFS='.' read -r -a VERSION_PARTS <<< "$VERSION"
+            MAJOR=${VERSION_PARTS[0]}
+            MINOR=${VERSION_PARTS[1]}
+            PATCH=${VERSION_PARTS[2]}
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            TAG_NAME="v$NEW_VERSION"
+            echo "Generated new tag: $TAG_NAME"
+            echo $NEW_VERSION > $VERSION_FILE
+            git tag -d "${{ steps.tag_version.outputs.tag_name }}"
+            git tag -a "$TAG_NAME" -m "Version $NEW_VERSION"
+            echo "::set-output name=tag_name::$TAG_NAME"
+          else
+            break
+          fi
+        done
+        echo "::set-output name=tag_exists::$TAG_EXISTS"
     - name: Push tag to the repository
       run: |
-        if [ -z "${{ steps.tag_version.outputs.tag_name }}" ]; then
-          echo "Error: TAG_NAME is empty before pushing"
-          exit 1
-        fi
-        git push origin "${{ steps.tag_version.outputs.tag_name }}"
+        git push origin "${{ steps.check_tag.outputs.tag_name }}"
     - name: Publish to GitHub Releases
       uses: ncipollo/release-action@v1
       with:
         artifacts: build/libs/*.jar
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag: "${{ steps.tag_version.outputs.tag_name }}"
-        name: "Release ${{ steps.tag_version.outputs.tag_name }}"
-        body: "Automated release for version ${{ steps.tag_version.outputs.tag_name }}"
+        tag: "${{ steps.check_tag.outputs.tag_name }}"
+        name: "Release ${{ steps.check_tag.outputs.tag_name }}"
+        body: "Automated release for version ${{ steps.check_tag.outputs.tag_name }}"
